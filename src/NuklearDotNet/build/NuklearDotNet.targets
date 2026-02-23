@@ -1,19 +1,14 @@
 <Project>
   <!--
     Build native Nuklear2 via CMake and register it as a CopyToOutput item.
-    All properties are evaluated inside the target body so that SDK-defined
-    values (IntermediateOutputPath, RuntimeIdentifier, etc.) are available.
-    BeforeTargets="AssignTargetPaths" ensures the None item is visible for
-    transitive copy when consuming projects resolve this project's output items.
-
-    Architecture priority (Windows):
-      PlatformTarget / RuntimeIdentifier (set via -p:Platform=x64, csproj, etc.),
-      then MSBuild host process architecture as fallback.
+    PlatformTarget is always set by the repo-root Directory.Build.props.
+    CMake configure runs every build (it's incremental and no-ops when nothing changed),
+    which avoids stale cross-arch builds from a cached output check.
   -->
   <Target Name="BuildNativeNuklear" BeforeTargets="AssignTargetPaths;Build">
     <PropertyGroup>
       <NuklearNativeDir>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\..\..\native'))</NuklearNativeDir>
-      <NuklearNativeBuildDir>$(IntermediateOutputPath)native-build</NuklearNativeBuildDir>
+      <NuklearNativeBuildDir>$(IntermediateOutputPath)native-build-$(PlatformTarget)</NuklearNativeBuildDir>
     </PropertyGroup>
 
     <!-- Platform-specific native library names and paths -->
@@ -30,16 +25,9 @@
       <NuklearNativeBuildOutput>$(NuklearNativeBuildDir)/$(NuklearNativeLib)</NuklearNativeBuildOutput>
     </PropertyGroup>
 
-    <!-- CMake configure flags (Windows) -->
+    <!-- CMake configure flags (Windows): PlatformTarget is x64 or ARM64, matching cmake -A -->
     <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-      <!-- PlatformTarget (propagates via -p:Platform=x64) or RuntimeIdentifier -->
-      <NuklearCMakeArch Condition="'$(PlatformTarget)' == 'x64' OR '$(RuntimeIdentifier)' == 'win-x64'">x64</NuklearCMakeArch>
-      <NuklearCMakeArch Condition="'$(PlatformTarget)' == 'ARM64' OR '$(RuntimeIdentifier)' == 'win-arm64'">ARM64</NuklearCMakeArch>
-      <!-- Fallback: match the MSBuild host process architecture -->
-      <NuklearCMakeArch Condition="'$(NuklearCMakeArch)' == '' AND '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'">x64</NuklearCMakeArch>
-      <NuklearCMakeArch Condition="'$(NuklearCMakeArch)' == '' AND '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">ARM64</NuklearCMakeArch>
-      <NuklearCMakeArchFlag Condition="'$(NuklearCMakeArch)' != ''">-A $(NuklearCMakeArch)</NuklearCMakeArchFlag>
-      <NuklearCMakeConfigureExtra>$(NuklearCMakeArchFlag)</NuklearCMakeConfigureExtra>
+      <NuklearCMakeConfigureExtra>-A $(PlatformTarget)</NuklearCMakeConfigureExtra>
       <NuklearCMakeBuildExtra>--config Release</NuklearCMakeBuildExtra>
     </PropertyGroup>
     <!-- CMake configure flags (Linux/macOS) -->
@@ -48,12 +36,9 @@
       <NuklearCMakeBuildExtra></NuklearCMakeBuildExtra>
     </PropertyGroup>
 
-    <Message Text="Building native Nuklear2 via CMake (arch: $(NuklearCMakeArch))..." Importance="High"
-             Condition="!Exists('$(NuklearNativeBuildOutput)')" />
-    <Exec Condition="!Exists('$(NuklearNativeBuildOutput)')"
-          Command="cmake -S &quot;$(NuklearNativeDir)&quot; -B &quot;$(NuklearNativeBuildDir)&quot; $(NuklearCMakeConfigureExtra)" />
-    <Exec Condition="!Exists('$(NuklearNativeBuildOutput)')"
-          Command="cmake --build &quot;$(NuklearNativeBuildDir)&quot; $(NuklearCMakeBuildExtra)" />
+    <Message Text="Building native Nuklear2 via CMake (PlatformTarget: $(PlatformTarget))..." Importance="High" />
+    <Exec Command="cmake -S &quot;$(NuklearNativeDir)&quot; -B &quot;$(NuklearNativeBuildDir)&quot; $(NuklearCMakeConfigureExtra)" />
+    <Exec Command="cmake --build &quot;$(NuklearNativeBuildDir)&quot; $(NuklearCMakeBuildExtra)" />
 
     <!-- Register the native DLL so it flows transitively to consuming projects -->
     <ItemGroup>
@@ -68,7 +53,7 @@
   <Target Name="ResolveNuklearAotPaths" BeforeTargets="ResolveAssemblyReferences"
           Condition="'$(PublishAot)' == 'true'">
     <PropertyGroup>
-      <NuklearNativeBuildDir>$(IntermediateOutputPath)native-build</NuklearNativeBuildDir>
+      <NuklearNativeBuildDir>$(IntermediateOutputPath)native-build-$(PlatformTarget)</NuklearNativeBuildDir>
       <NuklearStaticLib Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(NuklearNativeBuildDir)\Release\Nuklear2_static.lib</NuklearStaticLib>
       <NuklearStaticLib Condition="!$([MSBuild]::IsOSPlatform('Windows'))">$(NuklearNativeBuildDir)/libNuklear2_static.a</NuklearStaticLib>
     </PropertyGroup>

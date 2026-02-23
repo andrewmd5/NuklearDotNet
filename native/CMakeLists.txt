@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 project(Nuklear2 C)
 
+# Static-link the VC runtime so the DLL has zero runtime dependencies
+if(MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 # Build both shared and static libraries
 add_library(Nuklear2 SHARED nuklear_build.c)
 add_library(Nuklear2_static STATIC nuklear_build.c)

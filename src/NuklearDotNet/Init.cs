@@ -402,6 +402,10 @@ namespace NuklearDotNet {
 
 		[LibraryImport(DllName)]
 		[UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+		public static partial void nk_free(nk_context* context);
+
+		[LibraryImport(DllName)]
+		[UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
 		public static partial void nk_set_user_data(nk_context* context, NkHandle handle);
 
 		[LibraryImport(DllName)]

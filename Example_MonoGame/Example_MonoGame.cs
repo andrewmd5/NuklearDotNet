@@ -1,23 +1,16 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using NuklearDotNet;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Example_MonoGame
 {
-    /// <summary>
-    /// TODO: Implement IFrameBuffered
-    /// </summary>
-    internal class MonoGameDevice : NuklearDeviceTex<Texture2D>//, IFrameBuffered
+    internal unsafe class MonoGameDevice : NuklearDeviceTex<Texture2D>
     {
         private readonly GraphicsDevice _graphicsDevice;
         private readonly BasicEffect _effect;
+        private readonly RasterizerState _rasterizerState;
         private NKVertexPositionColorTexture[] _vertexBuffer;
         private short[] _indexBuffer;
 
@@ -28,12 +21,13 @@ namespace Example_MonoGame
             _effect = new BasicEffect(graphicsDevice);
             _effect.VertexColorEnabled = true;
             _effect.TextureEnabled = true;
+
+            _rasterizerState = new RasterizerState { CullMode = CullMode.None, ScissorTestEnable = true };
         }
 
         public override Texture2D CreateTexture(int W, int H, IntPtr Data)
         {
-            var data = new int[W * H];
-            Marshal.Copy(Data, data, 0, data.Length);
+            var data = new ReadOnlySpan<int>((void*)Data, W * H).ToArray();
 
             var texture = new Texture2D(_graphicsDevice, W, H);
             texture.SetData(data);
@@ -43,37 +37,40 @@ namespace Example_MonoGame
 
         public override void Render(NkHandle Userdata, Texture2D Texture, NkRect ClipRect, uint Offset, uint Count)
         {
-            // TODO: Store and then restore the original settings
+            var prevBlendState = _graphicsDevice.BlendState;
+            var prevSamplerState = _graphicsDevice.SamplerStates[0];
+            var prevDepthStencilState = _graphicsDevice.DepthStencilState;
+            var prevRasterizerState = _graphicsDevice.RasterizerState;
+            var prevScissor = _graphicsDevice.ScissorRectangle;
+
             _graphicsDevice.BlendState = BlendState.NonPremultiplied;
             _graphicsDevice.SamplerStates[0] = SamplerState.PointClamp;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = new RasterizerState()
-            {
-                CullMode = CullMode.None
-            };
+            _graphicsDevice.RasterizerState = _rasterizerState;
 
-            // TODO: Move this matrix calculation out of the render method.
             _effect.Projection = Matrix.CreateOrthographicOffCenter(0, _graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height, 0, 0, 100f);
             _effect.Texture = Texture;
             _effect.CurrentTechnique.Passes[0].Apply();
-            
-            var prevScissor = _graphicsDevice.ScissorRectangle;
+
             _graphicsDevice.ScissorRectangle = new Rectangle((int)ClipRect.X, (int)ClipRect.Y, (int)ClipRect.W, (int)ClipRect.H);
 
             _graphicsDevice.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, _vertexBuffer, 0, _vertexBuffer.Length, _indexBuffer, (int)Offset, (int)Count / 3);
 
+            _graphicsDevice.BlendState = prevBlendState;
+            _graphicsDevice.SamplerStates[0] = prevSamplerState;
+            _graphicsDevice.DepthStencilState = prevDepthStencilState;
+            _graphicsDevice.RasterizerState = prevRasterizerState;
             _graphicsDevice.ScissorRectangle = prevScissor;
         }
 
-        public override void SetBuffer(NkVertex[] VertexBuffer, ushort[] IndexBuffer)
+        public override void SetBuffer(ReadOnlySpan<NkVertex> VertexBuffer, ReadOnlySpan<ushort> IndexBuffer)
         {
-            _vertexBuffer = Unsafe.As<NKVertexPositionColorTexture[]>(VertexBuffer);
-            _indexBuffer = Unsafe.As<short[]>(IndexBuffer);
+            _vertexBuffer = MemoryMarshal.Cast<NkVertex, NKVertexPositionColorTexture>(VertexBuffer).ToArray();
+            _indexBuffer = MemoryMarshal.Cast<ushort, short>(IndexBuffer).ToArray();
         }
 
         /// <summary>
-        /// We could use <see cref="VertexPositionColorTexture"/> but then we would have to convert each <see cref="NkVertex"/> into that instance. 
-        /// This is a struct that mimicks the <see cref="NkVertex"/> struct layout this way we can avoid any conversion.
+        /// Struct that matches <see cref="NkVertex"/> layout so we can reinterpret-cast without per-vertex conversion.
         /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 0, Size = 12)]
         struct NKVertexPositionColorTexture : IVertexType
@@ -81,7 +78,7 @@ namespace Example_MonoGame
             public Vector2 Position;
             public Vector2 UV;
             public NkColor Color;
-            
+
             public static readonly VertexDeclaration VertexDeclaration;
 
             VertexDeclaration IVertexType.VertexDeclaration => VertexDeclaration;

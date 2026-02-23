@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <!-- Default to x64 on Windows (example native libs are x64-only),
+         but allow override with -p:PlatformTarget=ARM64 for ARM64 builds. -->
+    <PlatformTarget Condition="$([MSBuild]::IsOSPlatform('Windows')) AND '$(PlatformTarget)' == ''">x64</PlatformTarget>
+  </PropertyGroup>
+</Project>

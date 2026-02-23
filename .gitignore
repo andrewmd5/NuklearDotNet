@@ -287,3 +287,13 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
+
+# CMake build output
+build-x64/
+native-build/
+native/build/
+
+# Debug output files
+out.txt
+nuklear_debug.txt
+font_atlas_debug.*

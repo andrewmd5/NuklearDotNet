@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
+  <Project Path="src/NuklearDotNet/NuklearDotNet.csproj" />
+  <Project Path="ExampleShared/ExampleSharedDotnet.csproj" />
+  <Project Path="Example_Raylib/Example_RaylibDotnet.csproj" />
+  <Project Path="Example_MonoGame/Example_MonoGameDotnet.csproj" />
+  <Project Path="Example_SFML/Example_SFMLDotnet.csproj" />
+  <Project Path="Example_WindowsForms/Example_WindowsFormsDotnet.csproj" />
+  <Project Path="Example_DX11/Example_DX11Dotnet.csproj" />
+  <Project Path="Example_Vulkan/Example_VulkanDotnet.csproj" />
+</Solution>

@@ -1,194 +1,205 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using SFML;
+using System;
+using System.Runtime.InteropServices;
 using SFML.Graphics;
 using SFML.Window;
 using SFML.System;
 using NuklearDotNet;
-using System.Runtime.InteropServices;
 using System.Diagnostics;
-using System.Threading;
-using System.Reflection;
 using ExampleShared;
 
 namespace Example_SFML
 {
-    // Because SFML _still does not have a fucking Scissor function, what the *fuck*_
-    static class OpenGL
-    {
-        const string LibName = "opengl32";
-        public const int GL_SCISSOR_TEST = 0xC11;
+	static partial class OpenGL
+	{
+		const string LibName = "opengl32";
+		public const int GL_SCISSOR_TEST = 0xC11;
 
-        [DllImport(LibName)]
-        public static extern void glEnable(int Cap);
+		static OpenGL()
+		{
+			NativeLibrary.SetDllImportResolver(typeof(OpenGL).Assembly, (name, assembly, path) =>
+			{
+				if (name != LibName)
+					return IntPtr.Zero;
 
-        [DllImport(LibName)]
-        public static extern void glDisable(int Cap);
+				if (OperatingSystem.IsWindows())
+					return IntPtr.Zero; // default resolution finds opengl32.dll
 
-        [DllImport(LibName)]
-        public static extern void glScissor(int X, int Y, int W, int H);
+				if (OperatingSystem.IsLinux())
+					return NativeLibrary.Load("libGL.so.1");
 
-        public static void glScissor2(int WindH, int X, int Y, int W, int H)
-        {
-            glScissor(X, WindH - Y - H, W, H);
-        }
-    }
+				if (OperatingSystem.IsMacOS())
+					return NativeLibrary.Load("/System/Library/Frameworks/OpenGL.framework/OpenGL");
 
-    unsafe class SFMLDevice : NuklearDeviceTex<Texture>, IFrameBuffered
-    {
-        RenderWindow RWind;
+				return IntPtr.Zero;
+			});
+		}
 
-        RenderTexture RT;
-        Sprite RenderSprite;
+		[LibraryImport(LibName)]
+		public static partial void glEnable(int Cap);
 
-        public SFMLDevice(RenderWindow RWind)
-        {
-            this.RWind = RWind;
+		[LibraryImport(LibName)]
+		public static partial void glDisable(int Cap);
 
-            RT = new RenderTexture(RWind.Size.X, RWind.Size.Y);
-            RenderSprite = new Sprite(RT.Texture);
-        }
+		[LibraryImport(LibName)]
+		public static partial void glScissor(int X, int Y, int W, int H);
 
-        public override Texture CreateTexture(int W, int H, IntPtr Data)
-        {
-            Image I = new Image((uint)W, (uint)H);
-            for (int y = 0; y < H; y++)
-                for (int x = 0; x < W; x++)
-                {
-                    NkColor C = ((NkColor*)Data)[y * W + x];
-                    I.SetPixel((uint)x, (uint)y, new Color(C.R, C.G, C.B, C.A));
-                }
+		public static void glScissor2(int WindH, int X, int Y, int W, int H)
+		{
+			glScissor(X, WindH - Y - H, W, H);
+		}
+	}
 
-            Texture T = new Texture(I);
-            T.Smooth = true;
-            return T;
-        }
+	unsafe class SFMLDevice : NuklearDeviceTex<Texture>, IFrameBuffered
+	{
+		RenderWindow RWind;
+		RenderTexture RT;
+		Sprite RenderSprite;
 
-        public void BeginBuffering()
-        {
-            Console.WriteLine("BeginBuffering");
-            RT.Clear(Color.Transparent);
-        }
+		public SFMLDevice(RenderWindow RWind)
+		{
+			this.RWind = RWind;
+			RT = new RenderTexture(RWind.Size.X, RWind.Size.Y);
+			RenderSprite = new Sprite(RT.Texture);
+		}
 
-        NkVertex[] Verts;
-        ushort[] Inds;
+		public override Texture CreateTexture(int W, int H, IntPtr Data)
+		{
+			byte[] pixels = new byte[W * H * 4];
+			new ReadOnlySpan<byte>((void*)Data, pixels.Length).CopyTo(pixels);
 
-        public override void SetBuffer(NkVertex[] VertexBuffer, ushort[] IndexBuffer)
-        {
-            Verts = VertexBuffer;
-            Inds = IndexBuffer;
-        }
+			Image I = new Image((uint)W, (uint)H, pixels);
+			Texture T = new Texture(I);
+			T.Smooth = true;
+			return T;
+		}
 
-        public override void Render(NkHandle Userdata, Texture Texture, NkRect ClipRect, uint Offset, uint Count)
-        {
-            Vertex[] SfmlVerts = new Vertex[Count];
+		public void BeginBuffering()
+		{
+			RT.Clear(Color.Transparent);
+		}
 
-            for (int i = 0; i < Count; i++)
-            {
-                NkVertex V = Verts[Inds[Offset + i]];
-                SfmlVerts[i] = new Vertex(new Vector2f(V.Position.X, V.Position.Y), new Color(V.Color.R, V.Color.G, V.Color.B, V.Color.A), new Vector2f(V.UV.X, V.UV.Y));
-            }
+		NkVertex* VertsPtr;
+		ushort* IndsPtr;
 
-            Texture.Bind(Texture);
+		public override void SetBuffer(ReadOnlySpan<NkVertex> VertexBuffer, ReadOnlySpan<ushort> IndexBuffer)
+		{
+			fixed (NkVertex* v = VertexBuffer) VertsPtr = v;
+			fixed (ushort* i = IndexBuffer) IndsPtr = i;
+		}
 
-            OpenGL.glEnable(OpenGL.GL_SCISSOR_TEST);
-            OpenGL.glScissor2((int)RWind.Size.Y, (int)ClipRect.X, (int)ClipRect.Y, (int)ClipRect.W, (int)ClipRect.H);
+		public override void Render(NkHandle Userdata, Texture Texture, NkRect ClipRect, uint Offset, uint Count)
+		{
+			Vertex[] SfmlVerts = new Vertex[Count];
 
-            //RWind.Draw(SfmlVerts, PrimitiveType.Triangles);
-            RT.Draw(SfmlVerts, PrimitiveType.Triangles);
+			for (int i = 0; i < Count; i++)
+			{
+				NkVertex V = VertsPtr[IndsPtr[Offset + i]];
+				SfmlVerts[i] = new Vertex(
+					new Vector2f(V.Position.X, V.Position.Y),
+					new Color(V.Color.R, V.Color.G, V.Color.B, V.Color.A),
+					new Vector2f(V.UV.X * Texture.Size.X, V.UV.Y * Texture.Size.Y));
+			}
 
-            OpenGL.glDisable(OpenGL.GL_SCISSOR_TEST);
-        }
+			OpenGL.glEnable(OpenGL.GL_SCISSOR_TEST);
+			OpenGL.glScissor2((int)RT.Size.Y, (int)ClipRect.X, (int)ClipRect.Y, (int)ClipRect.W, (int)ClipRect.H);
 
-        public void EndBuffering()
-        {
-            RT.Display();
-        }
+			RT.Draw(SfmlVerts, PrimitiveType.Triangles, new RenderStates(Texture));
 
-        public void RenderFinal()
-        {
-            RWind.Draw(RenderSprite);
-        }
-    }
+			OpenGL.glDisable(OpenGL.GL_SCISSOR_TEST);
+		}
 
-    class Program
-    {
-        static void OnKey(SFMLDevice Dev, KeyEventArgs E, bool Down)
-        {
-            if (E.Code == Keyboard.Key.LShift || E.Code == Keyboard.Key.RShift)
-                Dev.OnKey(NkKeys.Shift, Down);
-            else if (E.Code == Keyboard.Key.LControl || E.Code == Keyboard.Key.RControl)
-                Dev.OnKey(NkKeys.Ctrl, Down);
-            else if (E.Code == Keyboard.Key.Delete)
-                Dev.OnKey(NkKeys.Del, Down);
-            else if (E.Code == Keyboard.Key.Enter)
-                Dev.OnKey(NkKeys.Enter, Down);
-            else if (E.Code == Keyboard.Key.Tab)
-                Dev.OnKey(NkKeys.Tab, Down);
-            else if (E.Code == Keyboard.Key.Backspace)
-                Dev.OnKey(NkKeys.Backspace, Down);
-            else if (E.Code == Keyboard.Key.Up)
-                Dev.OnKey(NkKeys.Up, Down);
-            else if (E.Code == Keyboard.Key.Down)
-                Dev.OnKey(NkKeys.Down, Down);
-            else if (E.Code == Keyboard.Key.Left)
-                Dev.OnKey(NkKeys.Left, Down);
-            else if (E.Code == Keyboard.Key.Right)
-                Dev.OnKey(NkKeys.Right, Down);
-            else if (E.Code == Keyboard.Key.Home)
-                Dev.OnKey(NkKeys.ScrollStart, Down);
-            else if (E.Code == Keyboard.Key.End)
-                Dev.OnKey(NkKeys.ScrollEnd, Down);
-            else if (E.Code == Keyboard.Key.PageDown)
-                Dev.OnKey(NkKeys.ScrollDown, Down);
-            else if (E.Code == Keyboard.Key.PageUp)
-                Dev.OnKey(NkKeys.ScrollUp, Down);
-        }
+		public void EndBuffering()
+		{
+			RT.Display();
+		}
 
-        static void Main(string[] args)
-        {
-            Console.Title = "Nuklear SFML .NET";
+		public void RenderFinal()
+		{
+			RWind.Draw(RenderSprite);
+		}
+	}
 
-            Stopwatch SWatch = Stopwatch.StartNew();
-            Color ClearColor = new Color(50, 50, 50);
-            VideoMode VMode = new VideoMode(1366, 768);
+	class Program
+	{
+		static void OnKey(SFMLDevice Dev, KeyEventArgs E, bool Down)
+		{
+			if (E.Code == Keyboard.Key.LShift || E.Code == Keyboard.Key.RShift)
+				Dev.OnKey(NkKeys.Shift, Down);
+			else if (E.Code == Keyboard.Key.LControl || E.Code == Keyboard.Key.RControl)
+				Dev.OnKey(NkKeys.Ctrl, Down);
+			else if (E.Code == Keyboard.Key.Delete)
+				Dev.OnKey(NkKeys.Del, Down);
+			else if (E.Code == Keyboard.Key.Enter)
+				Dev.OnKey(NkKeys.Enter, Down);
+			else if (E.Code == Keyboard.Key.Tab)
+				Dev.OnKey(NkKeys.Tab, Down);
+			else if (E.Code == Keyboard.Key.Backspace)
+				Dev.OnKey(NkKeys.Backspace, Down);
+			else if (E.Code == Keyboard.Key.Up)
+				Dev.OnKey(NkKeys.Up, Down);
+			else if (E.Code == Keyboard.Key.Down)
+				Dev.OnKey(NkKeys.Down, Down);
+			else if (E.Code == Keyboard.Key.Left)
+				Dev.OnKey(NkKeys.Left, Down);
+			else if (E.Code == Keyboard.Key.Right)
+				Dev.OnKey(NkKeys.Right, Down);
+			else if (E.Code == Keyboard.Key.Home)
+				Dev.OnKey(NkKeys.ScrollStart, Down);
+			else if (E.Code == Keyboard.Key.End)
+				Dev.OnKey(NkKeys.ScrollEnd, Down);
+			else if (E.Code == Keyboard.Key.PageDown)
+				Dev.OnKey(NkKeys.ScrollDown, Down);
+			else if (E.Code == Keyboard.Key.PageUp)
+				Dev.OnKey(NkKeys.ScrollUp, Down);
+		}
 
-            RenderWindow RWind = new RenderWindow(VMode, "Nuklear SFML .NET", Styles.Close);
-            RWind.SetKeyRepeatEnabled(true);
+		[DllImport("shcore.dll", SetLastError = true)]
+		static extern int SetProcessDpiAwareness(int value);
 
-            SFMLDevice Dev = new SFMLDevice(RWind);
-            RWind.Closed += (S, E) => RWind.Close();
-            RWind.MouseButtonPressed += (S, E) => Dev.OnMouseButton((NuklearEvent.MouseButton)E.Button, E.X, E.Y, true);
-            RWind.MouseButtonReleased += (S, E) => Dev.OnMouseButton((NuklearEvent.MouseButton)E.Button, E.X, E.Y, false);
-            RWind.MouseMoved += (S, E) => Dev.OnMouseMove(E.X, E.Y);
-            RWind.MouseWheelScrolled += (S, E) => Dev.OnScroll(0, E.Delta);
-            RWind.KeyPressed += (S, E) => OnKey(Dev, E, true);
-            RWind.KeyReleased += (S, E) => OnKey(Dev, E, false);
-            RWind.TextEntered += (S, E) => Dev.OnText(E.Unicode);
+		static void Main(string[] args)
+		{
+			// DPI-unaware so Windows handles scaling transparently
+			if (OperatingSystem.IsWindows())
+				try { SetProcessDpiAwareness(0); } catch { }
 
-            Shared.Init(Dev);
+			Console.Title = "Nuklear SFML .NET";
 
-            float Dt = 0.1f;
+			Stopwatch SWatch = Stopwatch.StartNew();
+			Color ClearColor = new Color(50, 50, 50);
+			VideoMode VMode = new VideoMode(1366, 768);
 
-            NuklearAPI.QueueForceUpdate();
-            while (RWind.IsOpen)
-            {
+			RenderWindow RWind = new RenderWindow(VMode, "Nuklear SFML .NET", Styles.Close);
+			RWind.SetKeyRepeatEnabled(true);
 
-                RWind.DispatchEvents();
-                RWind.Clear(ClearColor);
+			SFMLDevice Dev = new SFMLDevice(RWind);
+			RWind.Closed += (S, E) => RWind.Close();
+			RWind.MouseButtonPressed += (S, E) => Dev.OnMouseButton((NuklearEvent.MouseButton)E.Button, E.X, E.Y, true);
+			RWind.MouseButtonReleased += (S, E) => Dev.OnMouseButton((NuklearEvent.MouseButton)E.Button, E.X, E.Y, false);
+			RWind.MouseMoved += (S, E) => Dev.OnMouseMove(E.X, E.Y);
+			RWind.MouseWheelScrolled += (S, E) => Dev.OnScroll(0, E.Delta);
+			RWind.KeyPressed += (S, E) => OnKey(Dev, E, true);
+			RWind.KeyReleased += (S, E) => OnKey(Dev, E, false);
+			RWind.TextEntered += (S, E) => Dev.OnText(E.Unicode);
 
-                Shared.DrawLoop(Dt);
+			Shared.Init(Dev);
 
-                RWind.Display();
+			float Dt = 0.1f;
 
-                Dt = SWatch.ElapsedMilliseconds / 1000.0f;
-                SWatch.Restart();
-            }
+			NuklearAPI.QueueForceUpdate();
+			while (RWind.IsOpen)
+			{
+				RWind.DispatchEvents();
+				RWind.Clear(ClearColor);
 
-            Environment.Exit(0);
-        }
-    }
+				Shared.DrawLoop(Dt);
+
+				RWind.Display();
+
+				Dt = SWatch.ElapsedMilliseconds / 1000.0f;
+				SWatch.Restart();
+			}
+
+			Environment.Exit(0);
+		}
+	}
 }

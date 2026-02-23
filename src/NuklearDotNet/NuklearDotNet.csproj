@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <Nullable>enable</Nullable>
+    <RootNamespace>NuklearDotNet</RootNamespace>
+    <AssemblyName>NuklearDotNet</AssemblyName>
+  </PropertyGroup>
+
+  <Import Project="build\NuklearDotNet.targets" />
+</Project>

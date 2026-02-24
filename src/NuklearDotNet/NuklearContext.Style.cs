@@ -4,6 +4,13 @@ namespace NuklearDotNet;
 
 public sealed unsafe partial class NuklearContext {
 	/// <summary>
+	/// Direct mutable access to the native Nuklear style struct.
+	/// Use for fine-grained skinning (rounding, padding, bar_height, cursor_size, etc.)
+	/// that <see cref="StyleFromTable"/> cannot express.
+	/// </summary>
+	public ref nk_style Style => ref _ctx->style;
+
+	/// <summary>
 	/// Resets all style properties to the built-in default theme.
 	/// </summary>
 	public void StyleDefault() {

@@ -87,6 +87,12 @@ public interface IFrameBuffered {
 public unsafe abstract class NuklearDevice {
 	private readonly Queue<NuklearEvent> _events = new();
 
+	/// <summary>Font size in pixels for custom font loading via <see cref="INuklearDeviceFontStash"/>.</summary>
+	public float FontSize { get; set; }
+
+	/// <summary>Custom font pointer set during font stash, used to override the default font after baking.</summary>
+	public unsafe nk_font* CustomFont { get; set; }
+
 	internal bool HasPendingEvents => _events.Count > 0;
 	internal NuklearEvent DequeueEvent() => _events.Dequeue();
 

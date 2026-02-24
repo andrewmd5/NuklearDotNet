@@ -53,6 +53,12 @@ public sealed unsafe partial class NuklearContext : IDisposable {
 		return mem;
 	}
 
+	/// <summary>
+	/// Raw pointer to the underlying <c>nk_context</c>. Intended for interop with
+	/// subsystems that need the native context directly (e.g., <see cref="NkConsoleContext"/>).
+	/// </summary>
+	public nk_context* NativeContext => _ctx;
+
 	public float DefaultFontHeight { get; set; }
 
 	void FontStash(FontStashAction? A = null) {
@@ -70,7 +76,10 @@ public sealed unsafe partial class NuklearContext : IDisposable {
 		int TexHandle = GetDeviceOrThrow().CreateTextureHandle(W, H, Image);
 		Nuklear.nk_font_atlas_end(_fontAtlas, Nuklear.nk_handle_id(TexHandle), _nullTexture);
 
-		if (_fontAtlas->default_font != null)
+		var dev = GetDeviceOrThrow();
+		if (dev.CustomFont is not null)
+			Nuklear.nk_style_set_font(_ctx, &dev.CustomFont->handle);
+		else if (_fontAtlas->default_font != null)
 			Nuklear.nk_style_set_font(_ctx, &_fontAtlas->default_font->handle);
 	}
 
@@ -239,9 +248,9 @@ public sealed unsafe partial class NuklearContext : IDisposable {
 		_convertCfg->vertex_layout = _vertexLayout;
 		_convertCfg->vertex_size = (nuint)sizeof(NkVertex);
 		_convertCfg->vertex_alignment = 1;
-		_convertCfg->circle_segment_count = 22;
-		_convertCfg->curve_segment_count = 22;
-		_convertCfg->arc_segment_count = 22;
+		_convertCfg->circle_segment_count = 64;
+		_convertCfg->curve_segment_count = 64;
+		_convertCfg->arc_segment_count = 64;
 		_convertCfg->global_alpha = 1.0f;
 		_convertCfg->null_tex = *_nullTexture;
 

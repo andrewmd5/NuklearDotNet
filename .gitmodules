@@ -1,3 +1,6 @@
 [submodule "nuklear2_c"]
 	path = nuklear2_c
 	url = https://github.com/Immediate-Mode-UI/Nuklear
+[submodule "vendor/nuklear_console"]
+	path = vendor/nuklear_console
+	url = https://github.com/RobLoach/nuklear_console.git

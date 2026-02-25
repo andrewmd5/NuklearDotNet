@@ -6,6 +6,9 @@ if(MSVC)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
+# SDL3 static lib gets linked into Nuklear2.so — must be built with -fPIC
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # SDL3 (static, fetched at configure time)
 include(FetchContent)
 FetchContent_Declare(SDL3

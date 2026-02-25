@@ -40,8 +40,8 @@
     <Exec Command="cmake -S &quot;$(NuklearNativeDir)&quot; -B &quot;$(NuklearNativeBuildDir)&quot; $(NuklearCMakeConfigureExtra)" />
     <Exec Command="cmake --build &quot;$(NuklearNativeBuildDir)&quot; $(NuklearCMakeBuildExtra)" />
 
-    <!-- Register the native DLL so it flows transitively to consuming projects -->
-    <ItemGroup>
+    <!-- Register the native DLL so it flows transitively to consuming projects (skip for AOT — static linked) -->
+    <ItemGroup Condition="'$(PublishAot)' != 'true'">
       <None Include="$(NuklearNativeBuildOutput)" Condition="Exists('$(NuklearNativeBuildOutput)')">
         <Link>$(NuklearNativeLib)</Link>
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -56,10 +56,13 @@
       <NuklearNativeBuildDir>$(IntermediateOutputPath)native-build-$(PlatformTarget)</NuklearNativeBuildDir>
       <NuklearStaticLib Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(NuklearNativeBuildDir)\Release\Nuklear2_static.lib</NuklearStaticLib>
       <NuklearStaticLib Condition="!$([MSBuild]::IsOSPlatform('Windows'))">$(NuklearNativeBuildDir)/libNuklear2_static.a</NuklearStaticLib>
+      <NuklearSdl3StaticLib Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(NuklearNativeBuildDir)\_deps\sdl3-build\Release\SDL3-static.lib</NuklearSdl3StaticLib>
+      <NuklearSdl3StaticLib Condition="!$([MSBuild]::IsOSPlatform('Windows'))">$(NuklearNativeBuildDir)/_deps/sdl3-build/libSDL3.a</NuklearSdl3StaticLib>
     </PropertyGroup>
     <ItemGroup>
       <DirectPInvoke Include="Nuklear2" />
       <NativeLibrary Include="$(NuklearStaticLib)" />
+      <NativeLibrary Include="$(NuklearSdl3StaticLib)" />
     </ItemGroup>
   </Target>
 

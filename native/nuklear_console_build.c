@@ -15,6 +15,23 @@
 #include "nuklear.h"
 #include <SDL3/SDL.h>
 
+/* nk_zero and nk_itoa are NK_INTERN (static) in nuklear.h's NK_IMPLEMENTATION
+ * section, which this TU does not include. The gamepad headers call them,
+ * so provide local definitions to avoid implicit-declaration warnings. */
+static void nk_zero(void *ptr, nk_size size) { NK_MEMSET(ptr, 0, size); }
+static char *nk_itoa(char *s, long n) {
+    long sign = n;
+    if (sign < 0) n = -n;
+    char *p = s;
+    do { *p++ = (char)('0' + n % 10); } while ((n /= 10) > 0);
+    if (sign < 0) *p++ = '-';
+    *p = '\0';
+    /* reverse */
+    char *a = s, *b = p - 1;
+    while (a < b) { char t = *a; *a++ = *b; *b-- = t; }
+    return s;
+}
+
 /* SDL3 3.2.x renamed face buttons: A→SOUTH, B→EAST, X→WEST, Y→NORTH.
  * nuklear_gamepad_sdl3.h still uses the old names. */
 #ifndef SDL_GAMEPAD_BUTTON_A

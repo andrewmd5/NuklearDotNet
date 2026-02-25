@@ -58,6 +58,11 @@ static float g_nk_hold_time[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 /* Enable dpad repeat in nuklear_console.h for up/down/left/right navigation */
 #define NK_CONSOLE_DPAD_REPEAT
 
+/* nk_console_dpad_repeat is used in nuklear_console_property.h before
+   nuklear_console.h defines it — forward-declare to fix the ordering. */
+struct nk_console;
+static nk_bool nk_console_dpad_repeat(struct nk_console* top, int button, int channel);
+
 #define NK_CONSOLE_IMPLEMENTATION
 #include "../vendor/nuklear_console/nuklear_console.h"
 

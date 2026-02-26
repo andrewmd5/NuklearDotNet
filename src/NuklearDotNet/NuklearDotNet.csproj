@@ -8,7 +8,6 @@
     <RootNamespace>NuklearDotNet</RootNamespace>
     <AssemblyName>NuklearDotNet</AssemblyName>
     <Platforms>x64;ARM64</Platforms>
+    <UseNuklear>true</UseNuklear>
   </PropertyGroup>
-
-  <Import Project="build\NuklearDotNet.targets" />
 </Project>

@@ -80,6 +80,15 @@ static float g_nk_hold_time[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 struct nk_console;
 static nk_bool nk_console_dpad_repeat(struct nk_console* top, int button, int channel);
 
+/* Hold acceleration: the longer a d-pad button is held, the larger the step
+   multiplier for slider/property adjustments. Ramps from 1x to 8x. */
+static int nk_console_hold_acceleration(int channel) {
+    float held = g_nk_hold_time[channel] - NK_HOLD_INITIAL_DELAY;
+    if (held <= 0.0f) return 1;
+    int accel = 1 + (int)(held * 2.0f);
+    return accel > 8 ? 8 : accel;
+}
+
 #define NK_CONSOLE_IMPLEMENTATION
 #include "../vendor/nuklear_console/nuklear_console.h"
 

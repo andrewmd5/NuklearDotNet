@@ -9,26 +9,28 @@ endif()
 # SDL3 static lib gets linked into Nuklear2.so — must be built with -fPIC
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# SDL3 (static, fetched at configure time)
-include(FetchContent)
-FetchContent_Declare(SDL3
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG        release-3.2.8
-    GIT_SHALLOW    TRUE
-)
-set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-set(SDL_STATIC ON CACHE BOOL "" FORCE)
-set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
-set(SDL_DISABLE_INSTALL ON CACHE BOOL "" FORCE)
-set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
-set(SDL_VIDEO OFF CACHE BOOL "" FORCE)
-set(SDL_RENDER OFF CACHE BOOL "" FORCE)
-set(SDL_CAMERA OFF CACHE BOOL "" FORCE)
-set(SDL_GPU OFF CACHE BOOL "" FORCE)
-if(NOT WIN32)
-    set(SDL_UNIX_CONSOLE_BUILD ON CACHE BOOL "" FORCE)
+# When built as subdirectory, SDL3 target is already available from parent
+if(NOT TARGET SDL3::SDL3-static)
+    include(FetchContent)
+    FetchContent_Declare(SDL3
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG        release-3.4.2
+        GIT_SHALLOW    TRUE
+    )
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+    set(SDL_DISABLE_INSTALL ON CACHE BOOL "" FORCE)
+    set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+    set(SDL_VIDEO OFF CACHE BOOL "" FORCE)
+    set(SDL_RENDER OFF CACHE BOOL "" FORCE)
+    set(SDL_CAMERA OFF CACHE BOOL "" FORCE)
+    set(SDL_GPU OFF CACHE BOOL "" FORCE)
+    if(NOT WIN32)
+        set(SDL_UNIX_CONSOLE_BUILD ON CACHE BOOL "" FORCE)
+    endif()
+    FetchContent_MakeAvailable(SDL3)
 endif()
-FetchContent_MakeAvailable(SDL3)
 
 set(NK_SOURCES nuklear_build.c nuklear_console_build.c)
 
@@ -52,6 +54,13 @@ target_include_directories(Nuklear2_static PRIVATE ${NK_INCLUDE_DIRS})
 
 target_link_libraries(Nuklear2 PRIVATE SDL3::SDL3-static)
 target_link_libraries(Nuklear2_static PRIVATE SDL3::SDL3-static)
+
+# Suppress warnings from vendored nuklear C code
+if(MSVC)
+    # C5287: different enum types, C4116: unnamed type in parentheses
+    target_compile_options(Nuklear2 PRIVATE /wd5287 /wd4116)
+    target_compile_options(Nuklear2_static PRIVATE /wd5287 /wd4116)
+endif()
 
 if(WIN32)
     set_target_properties(Nuklear2 PROPERTIES

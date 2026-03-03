@@ -72,6 +72,12 @@ if(WIN32)
         OUTPUT_NAME "Nuklear2_static"
     )
     target_sources(Nuklear2 PRIVATE nuklear.def)
+
+    target_link_options(Nuklear2 PRIVATE
+        /DELAYLOAD:winmm.dll
+        /DELAYLOAD:version.dll
+    )
+    target_link_libraries(Nuklear2 PRIVATE delayimp.lib)
 elseif(APPLE)
     set_target_properties(Nuklear2 PROPERTIES PREFIX "lib" SUFFIX ".dylib")
     set_target_properties(Nuklear2_static PROPERTIES PREFIX "lib" OUTPUT_NAME "Nuklear2_static")

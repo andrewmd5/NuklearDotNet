@@ -8,6 +8,7 @@
     <RootNamespace>NuklearDotNet</RootNamespace>
     <AssemblyName>NuklearDotNet</AssemblyName>
     <Platforms>x64;ARM64</Platforms>
-    <UseNuklear>true</UseNuklear>
+    <!-- This project is the managed binding only. Applications that consume the
+         native library opt into UseNuklear and copy/build Nuklear2 themselves. -->
   </PropertyGroup>
 </Project>
